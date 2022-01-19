@@ -9,10 +9,7 @@ import reportWebVitals from './reportWebVitals';
 import store from './state';
 
 const config = {
-  readOnlyChainId: ChainId.Mainnet,
-  readOnlyUrls: {
-    [ChainId.Mainnet]: `https://mainnet.infura.io/v3/${process.env.REACT_APP_INFURA_KEY}`,
-  },
+  
 }
 
 ReactDOM.render(

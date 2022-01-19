@@ -5,8 +5,9 @@ import { makeStyles, createStyles, Theme } from '@material-ui/core/styles';
 
 import Navigation from './Navigation';
 import HomePage from '../pages/HomePage';
-import DeployPage from '../pages/DeployPage';
+import VerifyRecipientPage from '../pages/VerifyRecipientPage';
 import MintPage from '../pages/MintPage';
+import TransferAllowancePage from '../pages/TransferAllowancePage';
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -26,9 +27,9 @@ const PageContainer = () => {
             <div className={classes.root}>
                 <Switch>
                     <Route path="/" exact render={(props) => homeRoute(props)} />
-                    <Route path="/deploy" exact render={(props) => deployRoute(props)} />
+                    <Route path="/recipient-verification" exact render={(props) => verifyRecipientRoute(props)} />
                     <Route path="/mint" exact render={(props) => mintRoute(props)} />
-                    <Route path="/mint/:tokenAddress" exact render={(props) => mintRoute(props)} />
+                    <Route path="/transfer-allowance" exact render={(props) => allowanceRoute(props)} />
                 </Switch>
             </div>
         </Navigation>
@@ -41,9 +42,15 @@ const homeRoute = (props: RouteComponentProps) => {
     )
 }
 
-const deployRoute = (props: RouteComponentProps) => {
+const verifyRecipientRoute = (props: RouteComponentProps) => {
     return (
-        <DeployPage/>
+        <VerifyRecipientPage/>
+    )
+}
+
+const allowanceRoute = (props: RouteComponentProps) => {
+    return (
+        <TransferAllowancePage/>
     )
 }
 

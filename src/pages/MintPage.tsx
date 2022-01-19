@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 import { Contract, utils } from 'ethers';
 
 import { multihash } from 'is-ipfs';
 
 import { withRouter, RouteComponentProps } from "react-router";
+
+import bs58 from 'bs58';
 
 import { makeStyles } from '@material-ui/core/styles';
 import Paper from '@material-ui/core/Paper';
@@ -14,7 +16,7 @@ import Button from '@material-ui/core/Button';
 import Typography from '@material-ui/core/Typography';
 import Container from '@material-ui/core/Container';
 
-import { Formik, Form, Field } from 'formik';
+import { Formik, FormikProps, Form, Field } from 'formik';
 import { LinearProgress } from '@material-ui/core';
 import { TextField } from 'formik-material-ui';
 
@@ -22,19 +24,20 @@ import { useEtherBalance, useEthers } from '@usedapp/core'
 import { formatEther } from '@ethersproject/units'
 
 import { getEtherscanLink } from '../utils';
-import { ERC721ABI } from '../utils/constants';
+import { ERC721ABI, NftContractAddresses, CHAIN_NAMES } from '../utils/constants';
+import { getBytes32FromIpfsHash } from '../utils';
 
 const useStyles = makeStyles({
     root: {
         minWidth: 275,
-        marginBottom: 15,
+        marginBottom: 25,
         textAlign: 'center',
     },
     title: {
         fontSize: 14,
     },
     container: {
-        marginTop: 15,
+        marginTop: 25,
         textAlign: 'center'
     },
     connectionButton: {
@@ -68,6 +71,14 @@ const MintPage = (props: RouteComponentProps & IMintProps) => {
     const [ pendingMintTransaction, setPendingMintTransaction ] = useState<boolean | string>(false)
     const [ mintTransactionSuccessful, setMintTransactionSuccessful] = useState<boolean | string>(false)
     const [ currentKey, setCurrentKey ] = useState(0)
+    const [ contractError, setContractError ] = useState<boolean | string>(false);
+    
+    type FormValues = {
+        contractAddress: string | undefined,
+        hash: string | undefined,
+        mintToAddress: string | undefined
+    };
+    const formikRef = useRef<FormikProps<FormValues>>(null);
 
     const userBalance = useEtherBalance(account)
 
@@ -75,6 +86,12 @@ const MintPage = (props: RouteComponentProps & IMintProps) => {
         setCurrentKey(currentKey + 1);
         setMintTransactionSuccessful(false);
     }, [tokenAddress])
+
+    useEffect(() => {
+        if(formikRef.current && chainId) {
+            formikRef.current.setFieldValue('contractAddress', NftContractAddresses[chainId]);
+        }
+    }, [chainId])
 
     return (
         <Container className={classes.container} maxWidth="md" key={currentKey}>
@@ -112,11 +129,12 @@ const MintPage = (props: RouteComponentProps & IMintProps) => {
             {account && (
             <>
             <Paper className={classes.paper}>
-            <h1 style={{marginTop: 0, paddingTop: 0}}>Mint ERC721 NFT</h1>
+            <h1 style={{marginTop: 0, paddingTop: 0}}>Mint ERC721 NFT to {chainId && CHAIN_NAMES[chainId]}</h1>
             <Formik
+                innerRef={formikRef}
                 initialValues={{
                     hash: '',
-                    contractAddress: tokenAddress,
+                    contractAddress: chainId ? NftContractAddresses[chainId] : NftContractAddresses[1],
                     mintToAddress: '',
                 }}
                 validate={values => {
@@ -142,27 +160,35 @@ const MintPage = (props: RouteComponentProps & IMintProps) => {
                 onSubmit={async (values, { setSubmitting }) => {
                     if(library) {
                         try {
-                            const signer = library.getSigner()
-                            const contract = new Contract(values.contractAddress, ERC721ABI, signer);
+                            setContractError(false);
+                            if(values.contractAddress && values.hash && values.mintToAddress) {
+                                const signer = library.getSigner()
+                                const contract = new Contract(values.contractAddress, ERC721ABI, signer);
 
-                            setIsAwaitingMetaMaskConfirmation(true);
+                                setIsAwaitingMetaMaskConfirmation(true);
 
-                            let transactionResponse = await contract.mint(values.mintToAddress, `ipfs://${values.hash}`)
+                                let ipfsHashToBytes32 = getBytes32FromIpfsHash(values.hash);
+                                let transactionResponse = await contract.mintWithHash(values.mintToAddress, ipfsHashToBytes32);
 
-                            setIsAwaitingMetaMaskConfirmation(false);
+                                setIsAwaitingMetaMaskConfirmation(false);
 
-                            let transactionHash = transactionResponse.hash;
+                                let transactionHash = transactionResponse.hash;
 
-                            setPendingMintTransaction(transactionHash);
+                                setPendingMintTransaction(transactionHash);
 
-                            await transactionResponse.wait();
+                                await transactionResponse.wait();
 
-                            setSubmitting(false);
-                            setPendingMintTransaction(false);
-                            setMintTransactionSuccessful(transactionHash);
-
+                                setSubmitting(false);
+                                setPendingMintTransaction(false);
+                                setMintTransactionSuccessful(transactionHash);
+                            }
                         }catch(error){
                             console.log({error})
+                            // @ts-ignore
+                            if(error?.error?.message) {
+                                // @ts-ignore
+                                setContractError(error?.error?.message);
+                            }
                             setSubmitting(false);
                             setIsAwaitingMetaMaskConfirmation(false);
                             setPendingMintTransaction(false);
@@ -182,6 +208,7 @@ const MintPage = (props: RouteComponentProps & IMintProps) => {
                                     label="Contract Address"
                                     helperText="Ethereum address of the NFT contract"
                                     variant="outlined"
+                                    disabled={true}
                                     style={{width: '456px', maxWidth: '100%'}}
                                 />
                                 <Field
@@ -216,6 +243,31 @@ const MintPage = (props: RouteComponentProps & IMintProps) => {
                                 >
                                     Mint ERC721
                                 </Button>
+                                {contractError &&
+                                    <>
+                                        <br />
+                                        <span>Contract Error:</span>
+                                        <br />
+                                        <span style={{'color': 'red'}}>{contractError}</span>
+                                        {
+                                            contractError && typeof contractError === 'string' && (contractError.indexOf('Please proceed to https://propy.com/nft to verify your wallet') > 0) &&
+                                            <>
+                                                <br />
+                                                <br />
+                                                <span>Remember that an address must be verified before a PropyNFT can be minted into it</span>
+                                                <Button
+                                                    variant="contained"
+                                                    color="primary"
+                                                    disabled={isSubmitting}
+                                                    onClick={() => history.push(`/recipient-verification`)}
+                                                    style={{display: 'block', marginBottom: 15, marginTop: 15, width: '456px', maxWidth: '100%', marginLeft:'auto',marginRight:'auto'}}
+                                                >
+                                                    Verify a PropyNFT Recipient
+                                                </Button>
+                                            </>
+                                        }
+                                    </>
+                                }
                             </>
                         }
                         {(isAwaitingMetaMaskConfirmation || pendingMintTransaction || mintTransactionSuccessful) &&
@@ -252,10 +304,19 @@ const MintPage = (props: RouteComponentProps & IMintProps) => {
                                             variant="contained"
                                             color="primary"
                                             disabled={isSubmitting}
-                                            onClick={() => history.push(`/deploy`)}
+                                            onClick={() => history.push(`/recipient-verification`)}
                                             style={{display: 'block', width: '456px', maxWidth: '100%', marginLeft:'auto',marginRight:'auto'}}
                                         >
-                                            Deploy another NFT contract
+                                            Verify a PropyNFT recipient
+                                        </Button>
+                                        <Button
+                                            variant="contained"
+                                            color="primary"
+                                            disabled={isSubmitting}
+                                            onClick={() => history.push(`/transfer-allowance`)}
+                                            style={{display: 'block', marginTop: 15, marginBottom: 15, width: '456px', maxWidth: '100%', marginLeft:'auto',marginRight:'auto'}}
+                                        >
+                                            Modify Transfer Allowance For Address
                                         </Button>
                                     </div>
                                 }

@@ -1,5 +1,5 @@
 {
-  "name": "nft-deployer",
+  "name": "propy-process-helpers",
   "version": "0.0.1",
   "private": true,
   "homepage": ".",
@@ -9,6 +9,7 @@
     "@testing-library/jest-dom": "^5.11.4",
     "@testing-library/react": "^11.1.0",
     "@testing-library/user-event": "^12.1.10",
+    "@types/bs58": "^4.0.1",
     "@types/jest": "^26.0.15",
     "@types/node": "^12.0.0",
     "@types/react": "^17.0.0",
@@ -17,6 +18,7 @@
     "@types/react-router-dom": "^5.1.7",
     "@types/styled-components": "^5.1.0",
     "@usedapp/core": "^0.3.4",
+    "bs58": "^4.0.1",
     "ethers": "^5.0.31",
     "formik": "^2.2.9",
     "formik-material-ui": "^3.0.1",

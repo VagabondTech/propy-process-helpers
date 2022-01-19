@@ -8,7 +8,7 @@ import ListItem from '@material-ui/core/ListItem';
 import ListItemIcon from '@material-ui/core/ListItemIcon';
 import ListItemText from '@material-ui/core/ListItemText';
 import HomeIcon from '@material-ui/icons/Home';
-import DeployIcon from '@material-ui/icons/CloudUpload';
+import VerifyIcon from '@material-ui/icons/VerifiedUser';
 import MintIcon from '@material-ui/icons/AddPhotoAlternate';
 
 import { PropsFromRedux } from '../containers/NavigationLeftSideBarContainer';
@@ -20,14 +20,14 @@ const navigationMenu = [
 		icon: <HomeIcon />
 	},
   {
-		text: 'Deploy',
-		path: '/deploy',
-		icon: <DeployIcon />
-	},
-  {
 		text: 'Mint',
 		path: '/mint',
 		icon: <MintIcon />
+	},
+  {
+		text: 'Recipient Verification',
+		path: '/recipient-verification',
+		icon: <VerifyIcon />
 	},
 ];
 
