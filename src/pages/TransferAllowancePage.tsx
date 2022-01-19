@@ -142,7 +142,6 @@ const VerifyRecipientPage = (props: RouteComponentProps) => {
 
     return (
         <Container className={classes.container} maxWidth="md" key={currentKey}>
-            {isCheckingCurrentStatus.toString()}
             <div className="button-container">
                 {!account &&
                     <Button className={classes.connectionButton} color="primary" variant="contained" onClick={() => activateBrowserWallet()}>Connect</Button>
