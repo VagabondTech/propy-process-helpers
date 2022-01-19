@@ -10,6 +10,7 @@ import ListItemText from '@material-ui/core/ListItemText';
 import HomeIcon from '@material-ui/icons/Home';
 import VerifyIcon from '@material-ui/icons/VerifiedUser';
 import MintIcon from '@material-ui/icons/AddPhotoAlternate';
+import TransferAllowanceIcon from '@material-ui/icons/AccountBalance';
 
 import { PropsFromRedux } from '../containers/NavigationLeftSideBarContainer';
 
@@ -29,6 +30,11 @@ const navigationMenu = [
 		path: '/recipient-verification',
 		icon: <VerifyIcon />
 	},
+  {
+    text: 'Transfer Allowance',
+		path: '/transfer-allowance',
+		icon: <TransferAllowanceIcon />
+  }
 ];
 
 const useStyles = makeStyles({
