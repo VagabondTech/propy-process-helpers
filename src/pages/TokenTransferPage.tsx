@@ -25,8 +25,7 @@ import { useEtherBalance, useEthers } from '@usedapp/core'
 import { formatEther } from '@ethersproject/units'
 
 import { getEtherscanLink } from '../utils';
-import { PropyAddressControllerABI, AccessControllerAddresses, CHAIN_NAMES } from '../utils/constants';
-import { getBytes32FromIpfsHash } from '../utils';
+import { PropyAddressControllerABI, ERC721ABI, NftContractAddresses, AccessControllerAddresses, CHAIN_NAMES } from '../utils/constants';
 
 const useStyles = makeStyles({
     root: {
@@ -52,11 +51,22 @@ const useStyles = makeStyles({
 });
 
 interface Values {
-    verifyAddress: string;
-    verifyStatus: boolean;
+  accessControllerAddress: string;
+  tokenAddress: string;
+  tokenId: number;
+  recipientAddress: string;
+  verifyStatus: boolean;
 }
 
-const VerifyRecipientPage = (props: RouteComponentProps) => {
+interface ErrorValues {
+  accessControllerAddress: string;
+  tokenAddress: string;
+  tokenId: string;
+  recipientAddress: string;
+  verifyStatus: string;
+}
+
+const TokenTransferPage = (props: RouteComponentProps) => {
     const classes = useStyles();
 
     const { history } = props;
@@ -67,23 +77,41 @@ const VerifyRecipientPage = (props: RouteComponentProps) => {
     const [ pendingMintTransaction, setPendingMintTransaction ] = useState<boolean | string>(false)
     const [ mintTransactionSuccessful, setMintTransactionSuccessful] = useState<boolean | string>(false)
     const [ currentKey, setCurrentKey ] = useState(0)
+    const [ nftAddress, setNftAddress ] = useState<string>(NftContractAddresses[1]["pNFT"]);
     const [ accessControllerAddress, setAccessControllerAddress ] = useState<string>(AccessControllerAddresses[1]);
-    const [ currentVerificationAddress, setCurrentVerificationAddress ] = useState<boolean | string>(false);
+    const [ currentRecipientAddress, setCurrentRecipientAddress ] = useState<boolean | string>(false);
+    const [ currentTokenId, setCurrentTokenId ] = useState<boolean | number>(false);
     const [ isCheckingCurrentStatus, setIsCheckingCurrentStatus ] = useState(false);
-    const [ currentVerificationAddressStatus, setCurrentVerificationAddressStatus ] = useState<undefined | boolean>();
+    const [ currentRecipientAddressStatus, setCurrentRecipientAddressStatus ] = useState<undefined | boolean>();
     const [ contractError, setContractError ] = useState<boolean | string>(false);
 
     const userBalance = useEtherBalance(account)
 
     useEffect(() => {
         if(chainId) {
+            setNftAddress(NftContractAddresses[chainId]["pNFT"]);
             setAccessControllerAddress(AccessControllerAddresses[chainId]);
+        }
+    }, [chainId])
+
+    type FormValues = {
+        accessControllerAddress: string | undefined,
+        tokenAddress: string | undefined,
+        tokenId: number | string | undefined,
+        recipientAddress: string | undefined,
+    };
+    const formikRef = useRef<FormikProps<FormValues>>(null);
+
+    useEffect(() => {
+        if(formikRef.current && chainId) {
+            formikRef.current.setFieldValue('tokenAddress', NftContractAddresses[chainId]);
+            formikRef.current.setFieldValue('accessControllerAddress', AccessControllerAddresses[chainId]);
         }
     }, [chainId])
 
     useEffect(() => {
         const checkCurrentStatus = async () => {
-            if(currentVerificationAddress && utils.isAddress(currentVerificationAddress.toString())) {
+            if(currentRecipientAddress && currentTokenId && utils.isAddress(currentRecipientAddress.toString())) {
                 // Check to see current status of address
                 if(library) {
                     try {
@@ -91,27 +119,27 @@ const VerifyRecipientPage = (props: RouteComponentProps) => {
                             setIsCheckingCurrentStatus(true);
                             const signer = library.getSigner()
                             const contract = new Contract(accessControllerAddress, PropyAddressControllerABI, signer);
-                            let isCurrentlyVerified = await contract.verifiedRecipients(currentVerificationAddress);
-                            setCurrentVerificationAddressStatus(isCurrentlyVerified);
+                            let isCurrentlyVerified = await contract.isVerified(currentRecipientAddress);
+                            setCurrentRecipientAddressStatus(isCurrentlyVerified);
                             setIsCheckingCurrentStatus(false);
                         }
                     } catch (error) {
-                        setIsCheckingCurrentStatus(false);
                         console.error(error);
-                        setCurrentVerificationAddressStatus(undefined);
+                        setIsCheckingCurrentStatus(false);
+                        setCurrentRecipientAddressStatus(undefined);
                     }
                 }
             }else{
-                setCurrentVerificationAddress(false);
-                setCurrentVerificationAddressStatus(undefined);
+                setCurrentRecipientAddress(false);
+                setCurrentRecipientAddressStatus(undefined);
             }
         }
         checkCurrentStatus();
         return () => {
-            setCurrentVerificationAddress(false);
-            setCurrentVerificationAddressStatus(undefined);
+            setCurrentRecipientAddress(false);
+            setCurrentRecipientAddressStatus(undefined);
         }
-    }, [currentVerificationAddress, chainId, accessControllerAddress, library, account])
+    }, [currentRecipientAddress, currentTokenId, chainId, nftAddress, library, account])
 
     return (
         <Container className={classes.container} maxWidth="md" key={currentKey}>
@@ -149,18 +177,38 @@ const VerifyRecipientPage = (props: RouteComponentProps) => {
             {account && (
             <>
             <Paper className={classes.paper}>
-            <h1 style={{marginTop: 0, paddingTop: 0}}>Verify PropyNFT Recipient on {chainId && CHAIN_NAMES[chainId]}</h1>
+            <h1 style={{marginTop: 0, paddingTop: 0}}>Handle PropyNFT Transfers on {chainId && CHAIN_NAMES[chainId]}</h1>
             <Formik
+                innerRef={formikRef}
                 initialValues={{
-                    verifyAddress: '',
-                    verifyStatus: true,
+                    accessControllerAddress: chainId ? AccessControllerAddresses[chainId] : AccessControllerAddresses[1],
+                    tokenAddress: chainId ? NftContractAddresses[chainId]["pNFT"] : NftContractAddresses[1]["pNFT"],
+                    tokenId: '',
+                    recipientAddress: '',
                 }}
                 validate={values => {
-                    const errors: Partial<Values> = {};
-                    if (!values.verifyAddress) {
-                        errors.verifyAddress = 'Required';
-                    } else if(!utils.isAddress(values.verifyAddress)) {
-                        errors.verifyAddress = 'Invalid destination address';
+                    const errors: Partial<ErrorValues> = {};
+                    if (!values.tokenAddress) {
+                        errors.tokenAddress = 'Required';
+                    } else if(!utils.isAddress(values.tokenAddress)) {
+                        errors.tokenAddress = 'Invalid contract address';
+                    }
+                    if (!values.accessControllerAddress) {
+                      errors.accessControllerAddress = 'Required';
+                    } else if(!utils.isAddress(values.accessControllerAddress)) {
+                      errors.accessControllerAddress = 'Invalid contract address';
+                    }
+                    if (!values.recipientAddress) {
+                        errors.recipientAddress = 'Required';
+                    } else if(!utils.isAddress(values.recipientAddress)) {
+                        errors.recipientAddress = 'Invalid recipient address';
+                    }
+                    if (!values.tokenId || values.tokenId === '') {
+                        errors.tokenId = 'Required';
+                    } else if(values.tokenId < 1) {
+                        errors.tokenId = 'Minimum ID is 1';
+                    } else if(typeof values.tokenId === 'number' && (values.tokenId % 1) !== 0) {
+                        errors.tokenId = 'Integers only';
                     }
                     return errors;
                 }}
@@ -168,13 +216,13 @@ const VerifyRecipientPage = (props: RouteComponentProps) => {
                     if(library) {
                         try {
                             setContractError(false);
-                            if(values.verifyAddress && chainId && accessControllerAddress) {
+                            if(values.recipientAddress && chainId && nftAddress) {
                                 const signer = library.getSigner()
-                                const contract = new Contract(accessControllerAddress, PropyAddressControllerABI, signer);
+                                const contract = new Contract(nftAddress, ERC721ABI, signer);
 
                                 setIsAwaitingMetaMaskConfirmation(true);
 
-                                let transactionResponse = await contract.setVerifiedAddress(values.verifyAddress, !!values.verifyStatus);
+                                let transactionResponse = await contract.transferFrom(account, values.recipientAddress, values.tokenId);
 
                                 setIsAwaitingMetaMaskConfirmation(false);
 
@@ -189,7 +237,6 @@ const VerifyRecipientPage = (props: RouteComponentProps) => {
                                 setMintTransactionSuccessful(transactionHash);
                             }
                         }catch(error){
-                            console.log({error})
                             // @ts-ignore
                             if(error?.error?.message) {
                                 // @ts-ignore
@@ -210,59 +257,71 @@ const VerifyRecipientPage = (props: RouteComponentProps) => {
                                 <>
                                     <Field
                                         component={TextField}
+                                        disabled={true}
                                         type="text"
-                                        label="Verify Recipient Address"
-                                        helperText="The address that should be allowed to receive PropyNFT tokens"
-                                        name="verifyAddress"
+                                        label="PropyNFT Access Controller Address"
+                                        helperText="The contract address of the verified recipient controller"
+                                        name="accessControllerAddress"
+                                        variant="outlined"
+                                        style={{width: '456px', maxWidth: '100%', marginTop: 15}}
+                                    />
+                                    <Field
+                                        component={TextField}
+                                        disabled={true}
+                                        type="text"
+                                        label="PropyNFT Contract Address"
+                                        helperText="The contract address of the PropyNFT token"
+                                        name="tokenAddress"
+                                        variant="outlined"
+                                        style={{width: '456px', maxWidth: '100%', marginTop: 15}}
+                                    />
+                                    <Field
+                                        component={TextField}
+                                        type="number"
+                                        min="1"
+                                        step="1"
+                                        label="PropyNFT Token ID"
+                                        helperText="The token ID of the relevant PropyNFT"
+                                        name="tokenId"
                                         variant="outlined"
                                         onChange={(event: any) => {
-                                            setFieldValue('verifyAddress', event.target.value);
-                                            setCurrentVerificationAddress(event.target.value);
+                                            setFieldValue('tokenId', event.target.value);
+                                            setCurrentTokenId(event.target.value);
+                                        }}
+                                        style={{width: '456px', maxWidth: '100%', marginTop: 15}}
+                                    />
+                                    <Field
+                                        component={TextField}
+                                        type="text"
+                                        label="Recipient Address"
+                                        helperText="Destination address for the token"
+                                        name="recipientAddress"
+                                        variant="outlined"
+                                        onChange={(event: any) => {
+                                            setFieldValue('recipientAddress', event.target.value);
+                                            setCurrentRecipientAddress(event.target.value);
                                         }}
                                         style={{width: '456px', maxWidth: '100%', marginTop: 15}}
                                     />
                                     <br />
-                                    {(currentVerificationAddressStatus === true || currentVerificationAddressStatus === false) && 
+                                    {(currentRecipientAddressStatus === true || currentRecipientAddressStatus === false) && 
                                         <>
                                             <div style={{marginTop: 15}}>
-                                                <b>Address currently {currentVerificationAddressStatus ? <span style={{'color': 'green'}}>verified</span> : <span style={{'color': 'red'}}>unverified</span>}</b>
+                                                <b>Recipient currently {currentRecipientAddressStatus ? <span style={{'color': 'green'}}>verified</span> : <span style={{'color': 'red'}}>unverified</span>}</b>
                                             </div>
                                             <br />
                                         </>
                                     }
-                                    <div
-                                        style={{marginTop: 15}}
-                                    >
-                                        <InputLabel
-                                            htmlFor="verifyStatus"
-                                        >
-                                            <Field
-                                                component={Switch}
-                                                type="checkbox"
-                                                label="Verification Status"
-                                                name="verifyStatus"
-                                                variant="outlined"
-                                            />
-                                            {values.verifyStatus ? 'Set Verified' : 'Set Unverified'}
-                                        </InputLabel>
-                                    </div>
                                     <br />
                                     <Button
                                         variant="contained"
                                         color="primary"
-                                        disabled={isSubmitting || isCheckingCurrentStatus || (currentVerificationAddressStatus === values.verifyStatus)}
+                                        disabled={isSubmitting || isCheckingCurrentStatus || (currentRecipientAddressStatus === false)}
                                         onClick={submitForm}
                                         style={{marginTop: 15, marginBottom: 15, width: '456px', maxWidth: '100%'}}
                                     >
-                                        {values.verifyStatus ? 'Verify' : 'Unverify'} PropyNFT Recipient
+                                      Transfer Token (ID: {values.tokenId})
                                     </Button>
-                                    {
-                                        currentVerificationAddressStatus === values.verifyStatus && !errors.verifyAddress && 
-                                        <>
-                                            <br />
-                                            <span style={{'color': 'red'}}>Address already set to {currentVerificationAddressStatus ? 'verified' : 'unverified'}</span>
-                                        </>
-                                    }
                                     {contractError &&
                                         <>
                                             <br />
@@ -277,11 +336,11 @@ const VerifyRecipientPage = (props: RouteComponentProps) => {
                                 <div>
                                     {isAwaitingMetaMaskConfirmation && `Please Check MetaMask`}
                                     {chainId && pendingMintTransaction && typeof pendingMintTransaction === "string" && 
-                                        <span>Pending Verification Tx: <a style={{color: '#39bfff'}} href={getEtherscanLink(pendingMintTransaction, 'tx', chainId)} target="_blank" rel="noreferrer noopener">View On Etherscan</a></span>
+                                        <span>Pending Transfer Tx: <a style={{color: '#39bfff'}} href={getEtherscanLink(pendingMintTransaction, 'tx', chainId)} target="_blank" rel="noreferrer noopener">View On Etherscan</a></span>
                                     }
                                     {chainId && mintTransactionSuccessful && typeof mintTransactionSuccessful === "string" && 
                                         <div style={{textAlign: 'center', display: 'flex', flexDirection: 'column'}}>
-                                            <span>Verification Tx Successful: <a style={{color: '#39bfff'}} href={getEtherscanLink(mintTransactionSuccessful, 'tx', chainId)} target="_blank" rel="noreferrer noopener">View On Etherscan</a></span>
+                                            <span>Transfer Tx Successful: <a style={{color: '#39bfff'}} href={getEtherscanLink(mintTransactionSuccessful, 'tx', chainId)} target="_blank" rel="noreferrer noopener">View On Etherscan</a></span>
                                             <span style={{marginTop: 15}}>What's Next?</span>
                                             {/* <Button
                                                 variant="contained"
@@ -298,22 +357,23 @@ const VerifyRecipientPage = (props: RouteComponentProps) => {
                                                 disabled={isSubmitting}
                                                 onClick={() => {
                                                     setMintTransactionSuccessful(false)
-                                                    setFieldValue('verifyAddress', '');
-                                                    setCurrentVerificationAddress(false);
-                                                    setCurrentVerificationAddressStatus(undefined);
+                                                    setFieldValue('tokenId', '');
+                                                    setFieldValue('recipientAddress', '');
+                                                    setCurrentRecipientAddress(false);
+                                                    setCurrentRecipientAddressStatus(undefined);
                                                 }}
                                                 style={{display: 'block', marginTop: 15, marginBottom: 15, width: '456px', maxWidth: '100%', marginLeft:'auto',marginRight:'auto'}}
                                             >
-                                                Verify Another Address
+                                                Transfer Another Token
                                             </Button>
                                             <Button
                                                 variant="contained"
                                                 color="primary"
                                                 disabled={isSubmitting}
-                                                onClick={() => history.push(`/mint`)}
-                                                style={{display: 'block', width: '456px', maxWidth: '100%', marginLeft:'auto',marginRight:'auto'}}
+                                                onClick={() => history.push(`/token-transfer`)}
+                                                style={{display: 'block', marginBottom: 15, width: '456px', maxWidth: '100%', marginLeft:'auto',marginRight:'auto'}}
                                             >
-                                                Mint an NFT
+                                                Verify a PropyNFT Recipient
                                             </Button>
                                             <Button
                                                 variant="contained"
@@ -328,10 +388,10 @@ const VerifyRecipientPage = (props: RouteComponentProps) => {
                                                 variant="contained"
                                                 color="primary"
                                                 disabled={isSubmitting}
-                                                onClick={() => history.push(`/transfer-allowance`)}
-                                                style={{display: 'block', marginTop: 15, marginBottom: 15, width: '456px', maxWidth: '100%', marginLeft:'auto',marginRight:'auto'}}
+                                                onClick={() => history.push(`/mint`)}
+                                                style={{display: 'block', width: '456px', maxWidth: '100%', marginLeft:'auto',marginRight:'auto'}}
                                             >
-                                                Modify Transfer Allowance For Address
+                                                Mint an NFT
                                             </Button>
                                         </div>
                                     }
@@ -351,4 +411,4 @@ const VerifyRecipientPage = (props: RouteComponentProps) => {
     )
 };
 
-export default withRouter(VerifyRecipientPage);
+export default withRouter(TokenTransferPage);

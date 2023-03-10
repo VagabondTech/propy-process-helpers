@@ -15,10 +15,11 @@ import CardContent from '@material-ui/core/CardContent';
 import Button from '@material-ui/core/Button';
 import Typography from '@material-ui/core/Typography';
 import Container from '@material-ui/core/Container';
+import MenuItem from '@material-ui/core/MenuItem';
 
 import { Formik, FormikProps, Form, Field } from 'formik';
 import { LinearProgress } from '@material-ui/core';
-import { TextField } from 'formik-material-ui';
+import { TextField, Select } from 'formik-material-ui';
 
 import { useEtherBalance, useEthers } from '@usedapp/core'
 import { formatEther } from '@ethersproject/units'
@@ -51,9 +52,12 @@ const useStyles = makeStyles({
 });
 
 interface Values {
+    contractSelection: string;
     contractAddress: string;
     hash: string;
     mintToAddress: string;
+    royaltyReceiver: string;
+    royaltyBasisPoints: string;
 }
 
 interface IMintProps {
@@ -62,6 +66,8 @@ interface IMintProps {
 
 const MintPage = (props: RouteComponentProps & IMintProps) => {
     const classes = useStyles();
+
+    const [selectedContract, setSelectedContract] = useState("pNFT");
 
     const { history, tokenAddress } = props;
     
@@ -74,9 +80,12 @@ const MintPage = (props: RouteComponentProps & IMintProps) => {
     const [ contractError, setContractError ] = useState<boolean | string>(false);
     
     type FormValues = {
+        contractSelection: string,
         contractAddress: string | undefined,
         hash: string | undefined,
-        mintToAddress: string | undefined
+        mintToAddress: string | undefined,
+        royaltyReceiver: string | undefined,
+        royaltyBasisPoints: number | undefined
     };
     const formikRef = useRef<FormikProps<FormValues>>(null);
 
@@ -88,10 +97,11 @@ const MintPage = (props: RouteComponentProps & IMintProps) => {
     }, [tokenAddress])
 
     useEffect(() => {
-        if(formikRef.current && chainId) {
-            formikRef.current.setFieldValue('contractAddress', NftContractAddresses[chainId]);
+        if(formikRef.current && chainId && selectedContract) {
+            // @ts-ignore
+            formikRef.current.setFieldValue('contractAddress', NftContractAddresses[chainId][selectedContract]);
         }
-    }, [chainId])
+    }, [chainId, selectedContract])
 
     return (
         <Container className={classes.container} maxWidth="md" key={currentKey}>
@@ -134,12 +144,18 @@ const MintPage = (props: RouteComponentProps & IMintProps) => {
                 innerRef={formikRef}
                 initialValues={{
                     hash: '',
-                    contractAddress: chainId ? NftContractAddresses[chainId] : NftContractAddresses[1],
+                    contractSelection: "pNFT",
+                    contractAddress: chainId ? NftContractAddresses[chainId]["pNFT"] : NftContractAddresses[1]["pNFT"],
                     mintToAddress: '',
+                    royaltyReceiver: '',
+                    royaltyBasisPoints: 0
                 }}
                 validate={values => {
                     const errors: Partial<Values> = {};
                     console.log({values})
+                    if (!values.contractSelection) {
+                        errors.contractSelection = 'Required';
+                    }
                     if (!values.contractAddress) {
                         errors.contractAddress = 'Required';
                     } else if(!utils.isAddress(values.contractAddress)) {
@@ -155,6 +171,18 @@ const MintPage = (props: RouteComponentProps & IMintProps) => {
                     } else if(!utils.isAddress(values.mintToAddress)) {
                         errors.mintToAddress = 'Invalid destination address';
                     }
+                    if (!values.royaltyReceiver) {
+                        errors.royaltyReceiver = 'Required';
+                    } else if(!utils.isAddress(values.royaltyReceiver)) {
+                        errors.royaltyReceiver = 'Invalid royalty receiver address';
+                    }
+                    if (values.royaltyBasisPoints && isNaN(values.royaltyBasisPoints)) {
+                        errors.royaltyBasisPoints = 'Required';
+                    } else if(values.royaltyBasisPoints && ((values.royaltyBasisPoints > 10000) || (values.royaltyBasisPoints < 0))) {
+                        errors.royaltyBasisPoints = 'Basis points must be between 0-10000';
+                    } else if(values.royaltyBasisPoints && (values.royaltyBasisPoints % 1 !== 0)) {
+                        errors.royaltyBasisPoints = 'Integers only';
+                    } 
                     return errors;
                 }}
                 onSubmit={async (values, { setSubmitting }) => {
@@ -168,7 +196,7 @@ const MintPage = (props: RouteComponentProps & IMintProps) => {
                                 setIsAwaitingMetaMaskConfirmation(true);
 
                                 let ipfsHashToBytes32 = getBytes32FromIpfsHash(values.hash);
-                                let transactionResponse = await contract.mintWithHash(values.mintToAddress, ipfsHashToBytes32);
+                                let transactionResponse = await contract.mintWithHash(values.mintToAddress, ipfsHashToBytes32, values.royaltyReceiver, values.royaltyBasisPoints);
 
                                 setIsAwaitingMetaMaskConfirmation(false);
 
@@ -197,10 +225,22 @@ const MintPage = (props: RouteComponentProps & IMintProps) => {
                     }
                 }}
                 >
-                {({ submitForm, isSubmitting }) => (
+                {({ submitForm, isSubmitting, values }) => (
                     <Form>
                         {!mintTransactionSuccessful &&
                             <>
+                                <Field
+                                    component={Select}
+                                    name="contractSelection"
+                                    label="Contract Selection"
+                                    helperText="Symbol of the NFT contract"
+                                    variant="outlined"
+                                    style={{width: '456px', maxWidth: '100%'}}
+                                    inputProps={{name: 'contractSelection', id: 'contractSelection'}}
+                                >
+                                    <MenuItem value={"pNFT"} onClick={() => setSelectedContract("pNFT")}>pNFT</MenuItem>
+                                    <MenuItem value={"pDeedNFT"} onClick={() => setSelectedContract("pDeedNFT")}>pDeedNFT</MenuItem>
+                                </Field>
                                 <Field
                                     component={TextField}
                                     name="contractAddress"
@@ -209,7 +249,7 @@ const MintPage = (props: RouteComponentProps & IMintProps) => {
                                     helperText="Ethereum address of the NFT contract"
                                     variant="outlined"
                                     disabled={true}
-                                    style={{width: '456px', maxWidth: '100%'}}
+                                    style={{width: '456px', maxWidth: '100%', marginTop: 30}}
                                 />
                                 <Field
                                     component={TextField}
@@ -227,6 +267,26 @@ const MintPage = (props: RouteComponentProps & IMintProps) => {
                                     label="Mint To Address"
                                     helperText="The address that the token should be minted into"
                                     name="mintToAddress"
+                                    variant="outlined"
+                                    style={{width: '456px', maxWidth: '100%', marginTop: 15}}
+                                />
+                                <br />
+                                <Field
+                                    component={TextField}
+                                    type="text"
+                                    label="Royalty Receiver Address"
+                                    helperText="EIP-2981 royalty payment address (secondary sales only)"
+                                    name="royaltyReceiver"
+                                    variant="outlined"
+                                    style={{width: '456px', maxWidth: '100%', marginTop: 15}}
+                                />
+                                <br />
+                                <Field
+                                    component={TextField}
+                                    type="number"
+                                    label="Royalty Basis Points (100 = 1%)"
+                                    helperText={values.royaltyBasisPoints ? `${values.royaltyBasisPoints} basis points = ${values.royaltyBasisPoints / 100}%` : '0 basis points = 0%'}
+                                    name="royaltyBasisPoints"
                                     variant="outlined"
                                     style={{width: '456px', maxWidth: '100%', marginTop: 15}}
                                 />
@@ -308,6 +368,15 @@ const MintPage = (props: RouteComponentProps & IMintProps) => {
                                             style={{display: 'block', width: '456px', maxWidth: '100%', marginLeft:'auto',marginRight:'auto'}}
                                         >
                                             Verify a PropyNFT recipient
+                                        </Button>
+                                        <Button
+                                            variant="contained"
+                                            color="primary"
+                                            disabled={isSubmitting}
+                                            onClick={() => history.push(`/bid-whitelist`)}
+                                            style={{display: 'block', width: '456px', maxWidth: '100%', marginLeft:'auto',marginRight:'auto'}}
+                                        >
+                                            Set Bidder Whitelist Status
                                         </Button>
                                         <Button
                                             variant="contained"

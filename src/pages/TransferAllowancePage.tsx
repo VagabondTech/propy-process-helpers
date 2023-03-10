@@ -75,7 +75,7 @@ const VerifyRecipientPage = (props: RouteComponentProps) => {
     const [ pendingMintTransaction, setPendingMintTransaction ] = useState<boolean | string>(false)
     const [ mintTransactionSuccessful, setMintTransactionSuccessful] = useState<boolean | string>(false)
     const [ currentKey, setCurrentKey ] = useState(0)
-    const [ nftAddress, setNftAddress ] = useState<string>(NftContractAddresses[1]);
+    const [ nftAddress, setNftAddress ] = useState<string>(NftContractAddresses[1]["pNFT"]);
     const [ currentVerificationAddress, setCurrentVerificationAddress ] = useState<boolean | string>(false);
     const [ currentTokenId, setCurrentTokenId ] = useState<boolean | number>(false);
     const [ isCheckingCurrentStatus, setIsCheckingCurrentStatus ] = useState(false);
@@ -86,7 +86,7 @@ const VerifyRecipientPage = (props: RouteComponentProps) => {
 
     useEffect(() => {
         if(chainId) {
-            setNftAddress(NftContractAddresses[chainId]);
+            setNftAddress(NftContractAddresses[chainId]["pNFT"]);
         }
     }, [chainId])
 
@@ -180,7 +180,7 @@ const VerifyRecipientPage = (props: RouteComponentProps) => {
             <Formik
                 innerRef={formikRef}
                 initialValues={{
-                    tokenAddress: chainId ? NftContractAddresses[chainId] : NftContractAddresses[1],
+                    tokenAddress: chainId ? NftContractAddresses[chainId]["pNFT"] : NftContractAddresses[1]["pNFT"],
                     tokenId: '',
                     verifyAddress: '',
                     verifyStatus: true,
@@ -381,6 +381,15 @@ const VerifyRecipientPage = (props: RouteComponentProps) => {
                                                 style={{display: 'block', marginBottom: 15, width: '456px', maxWidth: '100%', marginLeft:'auto',marginRight:'auto'}}
                                             >
                                                 Verify a PropyNFT Recipient
+                                            </Button>
+                                            <Button
+                                                variant="contained"
+                                                color="primary"
+                                                disabled={isSubmitting}
+                                                onClick={() => history.push(`/bid-whitelist`)}
+                                                style={{display: 'block', width: '456px', maxWidth: '100%', marginLeft:'auto',marginRight:'auto'}}
+                                            >
+                                                Set Bidder Whitelist Status
                                             </Button>
                                             <Button
                                                 variant="contained"

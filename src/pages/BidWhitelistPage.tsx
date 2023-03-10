@@ -25,7 +25,7 @@ import { useEtherBalance, useEthers } from '@usedapp/core'
 import { formatEther } from '@ethersproject/units'
 
 import { getEtherscanLink } from '../utils';
-import { PropyAddressControllerABI, AccessControllerAddresses, CHAIN_NAMES } from '../utils/constants';
+import { BidWhitelistABI, WhitelistAddresses, CHAIN_NAMES } from '../utils/constants';
 import { getBytes32FromIpfsHash } from '../utils';
 
 const useStyles = makeStyles({
@@ -52,11 +52,11 @@ const useStyles = makeStyles({
 });
 
 interface Values {
-    verifyAddress: string;
-    verifyStatus: boolean;
+    bidderAddress: string;
+    whitelistStatus: boolean;
 }
 
-const VerifyRecipientPage = (props: RouteComponentProps) => {
+const BidWhitelistPage = (props: RouteComponentProps) => {
     const classes = useStyles();
 
     const { history } = props;
@@ -67,51 +67,51 @@ const VerifyRecipientPage = (props: RouteComponentProps) => {
     const [ pendingMintTransaction, setPendingMintTransaction ] = useState<boolean | string>(false)
     const [ mintTransactionSuccessful, setMintTransactionSuccessful] = useState<boolean | string>(false)
     const [ currentKey, setCurrentKey ] = useState(0)
-    const [ accessControllerAddress, setAccessControllerAddress ] = useState<string>(AccessControllerAddresses[1]);
-    const [ currentVerificationAddress, setCurrentVerificationAddress ] = useState<boolean | string>(false);
+    const [ bidWhitelistAddress, setBidWhitelistAddress ] = useState<string>(WhitelistAddresses[1]);
+    const [ currentBidderAddress, setCurrentBidderAddress ] = useState<boolean | string>(false);
     const [ isCheckingCurrentStatus, setIsCheckingCurrentStatus ] = useState(false);
-    const [ currentVerificationAddressStatus, setCurrentVerificationAddressStatus ] = useState<undefined | boolean>();
+    const [ currentWhitelistStatus, setCurrentBidderAddressStatus ] = useState<undefined | boolean>();
     const [ contractError, setContractError ] = useState<boolean | string>(false);
 
     const userBalance = useEtherBalance(account)
 
     useEffect(() => {
         if(chainId) {
-            setAccessControllerAddress(AccessControllerAddresses[chainId]);
+            setBidWhitelistAddress(WhitelistAddresses[chainId]);
         }
     }, [chainId])
 
     useEffect(() => {
         const checkCurrentStatus = async () => {
-            if(currentVerificationAddress && utils.isAddress(currentVerificationAddress.toString())) {
+            if(currentBidderAddress && utils.isAddress(currentBidderAddress.toString())) {
                 // Check to see current status of address
                 if(library) {
                     try {
-                        if(chainId && accessControllerAddress) {
+                        if(chainId && bidWhitelistAddress) {
                             setIsCheckingCurrentStatus(true);
                             const signer = library.getSigner()
-                            const contract = new Contract(accessControllerAddress, PropyAddressControllerABI, signer);
-                            let isCurrentlyVerified = await contract.verifiedRecipients(currentVerificationAddress);
-                            setCurrentVerificationAddressStatus(isCurrentlyVerified);
+                            const contract = new Contract(bidWhitelistAddress, BidWhitelistABI, signer);
+                            let isCurrentlyWhitelisted = await contract.isWhitelisted(currentBidderAddress);
+                            setCurrentBidderAddressStatus(isCurrentlyWhitelisted);
                             setIsCheckingCurrentStatus(false);
                         }
                     } catch (error) {
                         setIsCheckingCurrentStatus(false);
                         console.error(error);
-                        setCurrentVerificationAddressStatus(undefined);
+                        setCurrentBidderAddressStatus(undefined);
                     }
                 }
             }else{
-                setCurrentVerificationAddress(false);
-                setCurrentVerificationAddressStatus(undefined);
+                setCurrentBidderAddress(false);
+                setCurrentBidderAddressStatus(undefined);
             }
         }
         checkCurrentStatus();
         return () => {
-            setCurrentVerificationAddress(false);
-            setCurrentVerificationAddressStatus(undefined);
+            setCurrentBidderAddress(false);
+            setCurrentBidderAddressStatus(undefined);
         }
-    }, [currentVerificationAddress, chainId, accessControllerAddress, library, account])
+    }, [currentBidderAddress, chainId, bidWhitelistAddress, library, account])
 
     return (
         <Container className={classes.container} maxWidth="md" key={currentKey}>
@@ -149,18 +149,18 @@ const VerifyRecipientPage = (props: RouteComponentProps) => {
             {account && (
             <>
             <Paper className={classes.paper}>
-            <h1 style={{marginTop: 0, paddingTop: 0}}>Verify PropyNFT Recipient on {chainId && CHAIN_NAMES[chainId]}</h1>
+            <h1 style={{marginTop: 0, paddingTop: 0}}>Whitelist Bidder for Feb 10th 2022 Auction on {chainId && CHAIN_NAMES[chainId]}</h1>
             <Formik
                 initialValues={{
-                    verifyAddress: '',
-                    verifyStatus: true,
+                    bidderAddress: '',
+                    whitelistStatus: true,
                 }}
                 validate={values => {
                     const errors: Partial<Values> = {};
-                    if (!values.verifyAddress) {
-                        errors.verifyAddress = 'Required';
-                    } else if(!utils.isAddress(values.verifyAddress)) {
-                        errors.verifyAddress = 'Invalid destination address';
+                    if (!values.bidderAddress) {
+                        errors.bidderAddress = 'Required';
+                    } else if(!utils.isAddress(values.bidderAddress)) {
+                        errors.bidderAddress = 'Invalid destination address';
                     }
                     return errors;
                 }}
@@ -168,13 +168,13 @@ const VerifyRecipientPage = (props: RouteComponentProps) => {
                     if(library) {
                         try {
                             setContractError(false);
-                            if(values.verifyAddress && chainId && accessControllerAddress) {
+                            if(values.bidderAddress && chainId && bidWhitelistAddress) {
                                 const signer = library.getSigner()
-                                const contract = new Contract(accessControllerAddress, PropyAddressControllerABI, signer);
+                                const contract = new Contract(bidWhitelistAddress, BidWhitelistABI, signer);
 
                                 setIsAwaitingMetaMaskConfirmation(true);
 
-                                let transactionResponse = await contract.setVerifiedAddress(values.verifyAddress, !!values.verifyStatus);
+                                let transactionResponse = await contract.setWhitelistStatus(values.bidderAddress, !!values.whitelistStatus);
 
                                 setIsAwaitingMetaMaskConfirmation(false);
 
@@ -211,21 +211,21 @@ const VerifyRecipientPage = (props: RouteComponentProps) => {
                                     <Field
                                         component={TextField}
                                         type="text"
-                                        label="Verify Recipient Address"
-                                        helperText="The address that should be allowed to receive PropyNFT tokens"
-                                        name="verifyAddress"
+                                        label="Bidder Address"
+                                        helperText="The address that you would like to set the bidding whitelist status for"
+                                        name="bidderAddress"
                                         variant="outlined"
                                         onChange={(event: any) => {
-                                            setFieldValue('verifyAddress', event.target.value);
-                                            setCurrentVerificationAddress(event.target.value);
+                                            setFieldValue('bidderAddress', event.target.value);
+                                            setCurrentBidderAddress(event.target.value);
                                         }}
                                         style={{width: '456px', maxWidth: '100%', marginTop: 15}}
                                     />
                                     <br />
-                                    {(currentVerificationAddressStatus === true || currentVerificationAddressStatus === false) && 
+                                    {(currentWhitelistStatus === true || currentWhitelistStatus === false) && 
                                         <>
                                             <div style={{marginTop: 15}}>
-                                                <b>Address currently {currentVerificationAddressStatus ? <span style={{'color': 'green'}}>verified</span> : <span style={{'color': 'red'}}>unverified</span>}</b>
+                                                <b>Address currently {currentWhitelistStatus ? <span style={{'color': 'green'}}>whitelisted</span> : <span style={{'color': 'red'}}>not whitelisted</span>}</b>
                                             </div>
                                             <br />
                                         </>
@@ -234,33 +234,33 @@ const VerifyRecipientPage = (props: RouteComponentProps) => {
                                         style={{marginTop: 15}}
                                     >
                                         <InputLabel
-                                            htmlFor="verifyStatus"
+                                            htmlFor="whitelistStatus"
                                         >
                                             <Field
                                                 component={Switch}
                                                 type="checkbox"
-                                                label="Verification Status"
-                                                name="verifyStatus"
+                                                label="Whitelist Status"
+                                                name="whitelistStatus"
                                                 variant="outlined"
                                             />
-                                            {values.verifyStatus ? 'Set Verified' : 'Set Unverified'}
+                                            {values.whitelistStatus ? 'Add bidder to whitelist' : 'Remove bidder from whitelist'}
                                         </InputLabel>
                                     </div>
                                     <br />
                                     <Button
                                         variant="contained"
                                         color="primary"
-                                        disabled={isSubmitting || isCheckingCurrentStatus || (currentVerificationAddressStatus === values.verifyStatus)}
+                                        disabled={isSubmitting || isCheckingCurrentStatus || (currentWhitelistStatus === values.whitelistStatus)}
                                         onClick={submitForm}
                                         style={{marginTop: 15, marginBottom: 15, width: '456px', maxWidth: '100%'}}
                                     >
-                                        {values.verifyStatus ? 'Verify' : 'Unverify'} PropyNFT Recipient
+                                        {values.whitelistStatus ? 'Whitelist bidder' : 'Remove bidder from whitelist'}
                                     </Button>
                                     {
-                                        currentVerificationAddressStatus === values.verifyStatus && !errors.verifyAddress && 
+                                        currentWhitelistStatus === values.whitelistStatus && !errors.bidderAddress && 
                                         <>
                                             <br />
-                                            <span style={{'color': 'red'}}>Address already set to {currentVerificationAddressStatus ? 'verified' : 'unverified'}</span>
+                                            <span style={{'color': 'red'}}>Address already {currentWhitelistStatus ? 'whitelisted' : 'not whitelisted'}</span>
                                         </>
                                     }
                                     {contractError &&
@@ -277,11 +277,11 @@ const VerifyRecipientPage = (props: RouteComponentProps) => {
                                 <div>
                                     {isAwaitingMetaMaskConfirmation && `Please Check MetaMask`}
                                     {chainId && pendingMintTransaction && typeof pendingMintTransaction === "string" && 
-                                        <span>Pending Verification Tx: <a style={{color: '#39bfff'}} href={getEtherscanLink(pendingMintTransaction, 'tx', chainId)} target="_blank" rel="noreferrer noopener">View On Etherscan</a></span>
+                                        <span>Pending Set Whitelist Status Tx: <a style={{color: '#39bfff'}} href={getEtherscanLink(pendingMintTransaction, 'tx', chainId)} target="_blank" rel="noreferrer noopener">View On Etherscan</a></span>
                                     }
                                     {chainId && mintTransactionSuccessful && typeof mintTransactionSuccessful === "string" && 
                                         <div style={{textAlign: 'center', display: 'flex', flexDirection: 'column'}}>
-                                            <span>Verification Tx Successful: <a style={{color: '#39bfff'}} href={getEtherscanLink(mintTransactionSuccessful, 'tx', chainId)} target="_blank" rel="noreferrer noopener">View On Etherscan</a></span>
+                                            <span>Set Whitelist Status Tx Successful: <a style={{color: '#39bfff'}} href={getEtherscanLink(mintTransactionSuccessful, 'tx', chainId)} target="_blank" rel="noreferrer noopener">View On Etherscan</a></span>
                                             <span style={{marginTop: 15}}>What's Next?</span>
                                             {/* <Button
                                                 variant="contained"
@@ -298,13 +298,22 @@ const VerifyRecipientPage = (props: RouteComponentProps) => {
                                                 disabled={isSubmitting}
                                                 onClick={() => {
                                                     setMintTransactionSuccessful(false)
-                                                    setFieldValue('verifyAddress', '');
-                                                    setCurrentVerificationAddress(false);
-                                                    setCurrentVerificationAddressStatus(undefined);
+                                                    setFieldValue('bidderAddress', '');
+                                                    setCurrentBidderAddress(false);
+                                                    setCurrentBidderAddressStatus(undefined);
                                                 }}
                                                 style={{display: 'block', marginTop: 15, marginBottom: 15, width: '456px', maxWidth: '100%', marginLeft:'auto',marginRight:'auto'}}
                                             >
-                                                Verify Another Address
+                                                Set Whitelist Status of Another Address
+                                            </Button>
+                                            <Button
+                                                variant="contained"
+                                                color="primary"
+                                                disabled={isSubmitting}
+                                                onClick={() => history.push(`/recipient-verification`)}
+                                                style={{display: 'block', marginBottom: 15, width: '456px', maxWidth: '100%', marginLeft:'auto',marginRight:'auto'}}
+                                            >
+                                                Verify a PropyNFT Recipient
                                             </Button>
                                             <Button
                                                 variant="contained"
@@ -314,15 +323,6 @@ const VerifyRecipientPage = (props: RouteComponentProps) => {
                                                 style={{display: 'block', width: '456px', maxWidth: '100%', marginLeft:'auto',marginRight:'auto'}}
                                             >
                                                 Mint an NFT
-                                            </Button>
-                                            <Button
-                                                variant="contained"
-                                                color="primary"
-                                                disabled={isSubmitting}
-                                                onClick={() => history.push(`/bid-whitelist`)}
-                                                style={{display: 'block', width: '456px', maxWidth: '100%', marginLeft:'auto',marginRight:'auto'}}
-                                            >
-                                                Set Bidder Whitelist Status
                                             </Button>
                                             <Button
                                                 variant="contained"
@@ -351,4 +351,4 @@ const VerifyRecipientPage = (props: RouteComponentProps) => {
     )
 };
 
-export default withRouter(VerifyRecipientPage);
+export default withRouter(BidWhitelistPage);

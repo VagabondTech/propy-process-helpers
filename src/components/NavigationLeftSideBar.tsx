@@ -11,6 +11,8 @@ import HomeIcon from '@material-ui/icons/Home';
 import VerifyIcon from '@material-ui/icons/VerifiedUser';
 import MintIcon from '@material-ui/icons/AddPhotoAlternate';
 import TransferAllowanceIcon from '@material-ui/icons/AccountBalance';
+import BidWhitelistIcon from '@material-ui/icons/Gavel';
+import TokenTransferIcon from '@material-ui/icons/Telegram';
 
 import { PropsFromRedux } from '../containers/NavigationLeftSideBarContainer';
 
@@ -30,6 +32,16 @@ const navigationMenu = [
 		path: '/recipient-verification',
 		icon: <VerifyIcon />
 	},
+  {
+    text: 'Bid Whitelist',
+		path: '/bid-whitelist',
+		icon: <BidWhitelistIcon />
+  },
+  {
+    text: 'Token Transfer',
+		path: '/token-transfer',
+		icon: <TokenTransferIcon />
+  },
   {
     text: 'Transfer Allowance',
 		path: '/transfer-allowance',

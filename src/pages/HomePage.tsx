@@ -13,6 +13,8 @@ import Grid from '@material-ui/core/Grid';
 import VerifyIcon from '@material-ui/icons/VerifiedUser';
 import TransferAllowanceIcon from '@material-ui/icons/AccountBalance';
 import MintIcon from '@material-ui/icons/AddPhotoAlternate';
+import BidWhitelistIcon from '@material-ui/icons/Gavel';
+import TokenTransferIcon from '@material-ui/icons/Telegram';
 
 import { useEtherBalance, useEthers } from '@usedapp/core'
 import { formatEther } from '@ethersproject/units'
@@ -112,6 +114,40 @@ const HomePage = (props: RouteComponentProps) => {
                                         <div style={{maxWidth: '600px', marginTop: '15px', marginLeft: 'auto', marginRight: 'auto'}}>
                                             <Typography variant="subtitle1" component="h2">
                                                 Provides functionality to grant or revoke permission for an account to receive a PropyNFT
+                                            </Typography>
+                                        </div>
+                                    </CardContent>
+                                </CardActionArea>
+                            </Card>
+                        </Grid>
+                        <Grid item md={6} xs={12}>
+                            <Card className={classes.pageOption}>
+                                <CardActionArea style={{paddingBottom: '10px'}} onClick={() => history.push('/bid-whitelist')}>
+                                    <CardContent>
+                                        <BidWhitelistIcon style={{width: '100px', height: '120px'}}/>
+                                        <Typography variant="h5" component="h2">
+                                            Bid Whitelist
+                                        </Typography>
+                                        <div style={{maxWidth: '600px', marginTop: '15px', marginLeft: 'auto', marginRight: 'auto'}}>
+                                            <Typography variant="subtitle1" component="h2">
+                                                Grants or revokes permission for a specified account to bid on Propy Auctions.
+                                            </Typography>
+                                        </div>
+                                    </CardContent>
+                                </CardActionArea>
+                            </Card>
+                        </Grid>
+                        <Grid item md={6} xs={12}>
+                            <Card className={classes.pageOption}>
+                                <CardActionArea style={{paddingBottom: '10px'}} onClick={() => history.push('/token-transfer')}>
+                                    <CardContent>
+                                        <TokenTransferIcon style={{width: '100px', height: '120px'}}/>
+                                        <Typography variant="h5" component="h2">
+                                            Transfer Token
+                                        </Typography>
+                                        <div style={{maxWidth: '600px', marginTop: '15px', marginLeft: 'auto', marginRight: 'auto'}}>
+                                            <Typography variant="subtitle1" component="h2">
+                                                Provides functionality to transfer a token of a specified ID from the current owner to a verified recipient.
                                             </Typography>
                                         </div>
                                     </CardContent>

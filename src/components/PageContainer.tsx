@@ -8,6 +8,8 @@ import HomePage from '../pages/HomePage';
 import VerifyRecipientPage from '../pages/VerifyRecipientPage';
 import MintPage from '../pages/MintPage';
 import TransferAllowancePage from '../pages/TransferAllowancePage';
+import BidWhitelistPage from '../pages/BidWhitelistPage';
+import TokenTransferPage from '../pages/TokenTransferPage';
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -29,7 +31,9 @@ const PageContainer = () => {
                     <Route path="/" exact render={(props) => homeRoute(props)} />
                     <Route path="/recipient-verification" exact render={(props) => verifyRecipientRoute(props)} />
                     <Route path="/mint" exact render={(props) => mintRoute(props)} />
+                    <Route path="/bid-whitelist" exact render={(props) => bidWhitelistRoute(props)} />
                     <Route path="/transfer-allowance" exact render={(props) => allowanceRoute(props)} />
+                    <Route path="/token-transfer" exact render={(props) => tokenTransferRoute(props)} />
                 </Switch>
             </div>
         </Navigation>
@@ -51,6 +55,18 @@ const verifyRecipientRoute = (props: RouteComponentProps) => {
 const allowanceRoute = (props: RouteComponentProps) => {
     return (
         <TransferAllowancePage/>
+    )
+}
+
+const bidWhitelistRoute = (props: RouteComponentProps) => {
+    return (
+        <BidWhitelistPage/>
+    )
+}
+
+const tokenTransferRoute = (props: RouteComponentProps) => {
+    return (
+        <TokenTransferPage/>
     )
 }
 
